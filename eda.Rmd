@@ -1,0 +1,168 @@
+---
+title: "Final Project Exploratory Data Analysis (EDA)"
+author: "Nick Parekh"
+output: 
+  html_document:
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Initial Overview of Data
+The data is sourced from [Kaggle](https://www.kaggle.com/uciml/pima-indians-diabetes-database) and was based on a larger dataset from the National Institute of Diabetes and Digestive and Kidney Diseases. It includes data on women age 21 and older from the Pima tribe in Arizona. With this data, we are attempting to create a model that can accurately predict whether or not a Pima woman has diabetes or not. This could allow clinicians to diagnose women with diabetes earlier and better understand risk factors for the disease. 
+
+```{r, message=FALSE}
+## load package(s)
+library(tidyverse)
+library(tidymodels)
+library(naniar)
+
+## load dataset 
+diabetes_data <- read_csv("data/processed/diabetes.csv") %>% 
+  janitor::clean_names() %>% 
+  mutate(outcome = factor(outcome, levels = c("1", "0"), labels = c("Yes", "No")))
+
+## dimensions
+dim(diabetes_data)
+```
+
+
+The dataset contains 768 observations, 8 predictor variables, and 1 target variable. 
+
+<br>
+
+```{r}
+## replaces values of 0 with NA
+diabetes_data$insulin[diabetes_data$insulin == 0] <- NA
+diabetes_data$skin_thickness[diabetes_data$skin_thickness == 0] <- NA
+diabetes_data$bmi[diabetes_data$bmi == 0] <- NA
+diabetes_data$blood_pressure[diabetes_data$blood_pressure == 0] <- NA
+diabetes_data$glucose[diabetes_data$glucose == 0] <- NA
+
+gg_miss_var(diabetes_data)
+```
+
+
+One of the issues with the dataset was missing values were indicated with 0 for some of the predictor variables instead of NA. For example, some individuals had a diastolic blood pressure of 0 which is not possible unless the individual was dead. Therefore, we replaced all values of 0 in the predictor variables (except for pregnancies since it's possible to not have been pregnant) with NA values. The plot indicates there is a lot of missingness in insulin and skin_thickness; there is also a little missingness in blood_pressure, bmi, and glucose. 
+
+
+```{r}
+miss_var_summary(diabetes_data)
+```
+
+
+The table expands on what we saw in the plot. blood_pressure, bmi, and glucose are each missing less than 5% of their data, so their missing values can easily be imputed. In contrast, insulin is missing nearly 50% of its values, and skin_thickness is missing nearly 30% of its values. Normally, we would remove these variables, but serum insulin is likely an important predictor of diabetes so we will have to find a workaround. 
+
+<br>
+
+## Findings
+
+```{r}
+## quick look at target variable distribution
+ggplot(diabetes_data, aes(outcome)) + 
+  geom_bar(fill = "#add8e6") + 
+  theme_minimal() + 
+  labs(
+    x = "Diagnosed with diabetes?",
+    y = "Count",
+    title = "Target Variable Distribution"
+  ) 
+```
+
+
+The bar chart shows there is a large class imbalance in the outcome variable with a lot more people not having diabetes than those that do.
+
+
+```{r}
+diabetes_data %>% 
+  count(outcome) %>% 
+  mutate(prop_total = n/sum(n))
+```
+
+
+The table confirms what we saw, showing that only 35% of individuals have diabetes while 65% do not. During the splitting process, we will definitely have to stratify the splitting by the outcome variable. 
+
+
+```{r}
+## loads training data
+load("data/diabetes_train.rda")
+
+bmi_avg <- diabetes_train %>% 
+  group_by(outcome) %>% 
+  summarise(avg_bmi = mean(bmi, na.rm = TRUE))
+ggplot(bmi_avg, aes(outcome, avg_bmi, fill = outcome)) + 
+  geom_bar(stat = "identity", color = "black") + 
+  theme_minimal() + 
+  labs(x = "Outcome", y = "Average body mass index (BMI)")
+```
+
+
+Based on the bar graph, diabetic patients appear to have a higher body mass index (BMI) on average. 
+
+
+```{r}
+glucose_avg <- diabetes_train %>% 
+  group_by(outcome) %>% 
+  summarise(avg_glucose = mean(glucose, na.rm = TRUE))
+ggplot(glucose_avg, aes(outcome, avg_glucose, fill = outcome)) + 
+  geom_bar(stat = "identity", color = "black") + 
+  theme_minimal() + 
+  labs(x = "Outcome", y = "Average blood glucose")
+
+insulin_avg <- diabetes_train %>% 
+  group_by(outcome) %>% 
+  summarise(avg_insulin = mean(insulin, na.rm = TRUE))
+ggplot(insulin_avg, aes(outcome, avg_insulin, fill = outcome)) + 
+  geom_bar(stat = "identity", color = "black") + 
+  theme_minimal() + 
+  labs(x = "Outcome", y = "Average insulin")
+```
+
+
+Similarly, higher 2 hour serum insulin levels and blood glucose levels during a glucose tolerance test appear to be associated with diabetes. This is probably related to insulin insensitivity. The cells of patients with Type II diabetes don't respond as well to insulin, so glucose isn't taken into the cells efficiently and the body tries to compensate by secreting more insulin. 
+
+
+```{r}
+ggplot(diabetes_train, aes(age, fill = outcome)) + 
+  geom_histogram(binwidth = 10, color = "black") +
+  theme_minimal() +
+  labs(x = "Age", y = "Count", fill = "Outcome")
+```
+
+
+Middle-aged individuals (30-60 years old) seem to have higher rates of diabetes compared to younger and older individuals. Obviously, younger people are healthier and less likely to develop Type II Diabetes at that age. The oldest individuals (> 60 years old) may have lower rates of diabetes because they had better diets (e.g. no fast food, soda). The distribution of age is also highly right-skewed so we will likely needed to normalize the predictors during the recipe-building stage.
+
+
+```{r, warning=FALSE}
+ggplot(diabetes_train, aes(bmi, skin_thickness)) + 
+  geom_point(color = "#fa8072") + 
+  theme_minimal() + 
+  labs(x = "Body Mass Index (BMI)", y = "Skin Thickness")
+```
+
+
+BMI and skin thickness are highly correlated but this not entirely surprising since both are intended to be measures of body fat. 
+
+
+```{r, warning=FALSE}
+ggplot(diabetes_train, aes(insulin, glucose)) + 
+  geom_point(color = "#30D5C8") + 
+  theme_minimal() +
+  labs(x = "Serum Insulin", y = "Blood Glucose")
+```
+
+
+Likewise, blood glucose levels during the glucose tolerance test and serum insulin levels also display a high degree of correlation. This is likely because high blood glucose during the glucose tolerance test indicates insulin insensitivity, and one way the body tries to deal with insulin insensitivity is by secreting more insulin. 
+
+
+```{r, warning=FALSE}
+ggplot(diabetes_data, aes(pregnancies, glucose, color = outcome)) + 
+  geom_jitter() + 
+  theme_minimal() + 
+  labs(x = "Number of Pregnancies", y = "Blood Glucose")
+```
+
+
+Interestingly, there doesn't seem to be a pattern between blood glucose levels and number of pregnancies - all we see is a cloud of points. This suggests number of pregnancies may not be a good predictor of diabetes. 
