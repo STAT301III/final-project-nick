@@ -55,7 +55,10 @@ diabetes_data %>%
 ## splitting data ----
 diabetes_split <- initial_split(diabetes_data, prop = 0.75, strata = outcome)
 diabetes_train <- training(diabetes_split)
-diabetes_test <- testing(diabetes_split)
+
+## save split info/training set as .rda objects
+save(diabetes_train, file = "data/diabetes_train.rda")
+save(diabetes_split, file = "data/diabetes_split.rda")
 
 ## set up folds ----
 
@@ -63,13 +66,17 @@ diabetes_test <- testing(diabetes_split)
 bmi_avg <- diabetes_train %>% 
   group_by(outcome) %>% 
   summarise(avg_bmi = mean(bmi, na.rm = TRUE))
-bmi_avg
+ggplot(bmi_avg, aes(outcome, avg_bmi, fill = outcome)) + 
+  geom_bar(stat = "identity", color = "black") + 
+  theme_minimal() + 
+  labs(x = "Diabetes", y = "Average body mass index (BMI)") + 
+  theme(legend.position = "none")
 ## higher body mass index (bmi) appears to be correlated with diabetes
 
 ggplot(diabetes_train, aes(age, fill = outcome)) + 
   geom_histogram(binwidth = 10, color = "black") +
   theme_minimal() +
-  labs(x = "Age", y = "Count", fill = "Outcome")
+  labs(x = "Age", y = "Count", fill = "Diabetes")
 ## higher proportion of middle age people with diabetes (30 - 60 years old) - obviously younger people are healthier but older people appear to have lower proportions of diabetes maybe because of better diet?
 ## age is also right-skewed
 
@@ -79,8 +86,18 @@ glucose_avg <- diabetes_train %>%
 ggplot(glucose_avg, aes(outcome, avg_glucose, fill = outcome)) + 
   geom_bar(stat = "identity", color = "black") + 
   theme_minimal() + 
-  labs(x = "Outcome", y = "Average blood glucose")
+  labs(x = "Diabetes", y = "Average blood glucose") + 
+  theme(legend.position = "none")
 ## 2 hours post glucose tolerance test, those with diabetes had elevated blood glucose levels compared to those without it - probably related to insulin insensitivity
+
+insulin_avg <- diabetes_train %>% 
+  group_by(outcome) %>% 
+  summarise(avg_insulin = mean(insulin, na.rm = TRUE))
+ggplot(insulin_avg, aes(outcome, avg_insulin, fill = outcome)) + 
+  geom_bar(stat = "identity", color = "black") + 
+  theme_minimal() + 
+  labs(x = "Diabetes", y = "Average insulin")
+## average 2 hour serum insulin level is much higher in patients with diabetes
 
 ggplot(diabetes_train, aes(pregnancies)) + 
   geom_histogram(binwidth = 1, color = "black") + 
@@ -102,7 +119,8 @@ ggplot(diabetes_train, aes(insulin, glucose)) +
 ggplot(diabetes_data, aes(pregnancies, glucose, color = outcome)) + 
   geom_jitter() + 
   theme_minimal() + 
-  labs(x = "Number of Pregnancies", y = "Blood Glucose")
+  labs(x = "Number of Pregnancies", y = "Blood Glucose", color = "Diabetes")
 ## not a huge correlation between number of pregnancies and blood glucose levels during the glucose tolerance test - maybe it's not a great predictor of diabetes
+
 
 

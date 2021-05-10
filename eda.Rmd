@@ -23,9 +23,6 @@ library(naniar)
 diabetes_data <- read_csv("data/processed/diabetes.csv") %>% 
   janitor::clean_names() %>% 
   mutate(outcome = factor(outcome, levels = c("1", "0"), labels = c("Yes", "No")))
-
-## dimensions
-dim(diabetes_data)
 ```
 
 
@@ -95,7 +92,8 @@ bmi_avg <- diabetes_train %>%
 ggplot(bmi_avg, aes(outcome, avg_bmi, fill = outcome)) + 
   geom_bar(stat = "identity", color = "black") + 
   theme_minimal() + 
-  labs(x = "Outcome", y = "Average body mass index (BMI)")
+  labs(x = "Diabetes", y = "Average body mass index (BMI)") + 
+  theme(legend.position = "none")
 ```
 
 
@@ -109,7 +107,8 @@ glucose_avg <- diabetes_train %>%
 ggplot(glucose_avg, aes(outcome, avg_glucose, fill = outcome)) + 
   geom_bar(stat = "identity", color = "black") + 
   theme_minimal() + 
-  labs(x = "Outcome", y = "Average blood glucose")
+  labs(x = "Diabetes", y = "Average blood glucose") +
+  theme(legend.position = "none")
 
 insulin_avg <- diabetes_train %>% 
   group_by(outcome) %>% 
@@ -117,7 +116,8 @@ insulin_avg <- diabetes_train %>%
 ggplot(insulin_avg, aes(outcome, avg_insulin, fill = outcome)) + 
   geom_bar(stat = "identity", color = "black") + 
   theme_minimal() + 
-  labs(x = "Outcome", y = "Average insulin")
+  labs(x = "Diabetes", y = "Average insulin") +
+  theme(legend.position = "none")
 ```
 
 
@@ -128,7 +128,7 @@ Similarly, higher 2 hour serum insulin levels and blood glucose levels during a 
 ggplot(diabetes_train, aes(age, fill = outcome)) + 
   geom_histogram(binwidth = 10, color = "black") +
   theme_minimal() +
-  labs(x = "Age", y = "Count", fill = "Outcome")
+  labs(x = "Age", y = "Count", fill = "Diabetes")
 ```
 
 
@@ -161,7 +161,7 @@ Likewise, blood glucose levels during the glucose tolerance test and serum insul
 ggplot(diabetes_data, aes(pregnancies, glucose, color = outcome)) + 
   geom_jitter() + 
   theme_minimal() + 
-  labs(x = "Number of Pregnancies", y = "Blood Glucose")
+  labs(x = "Number of Pregnancies", y = "Blood Glucose", color = "Diabetes")
 ```
 
 
