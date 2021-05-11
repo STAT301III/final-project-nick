@@ -55,7 +55,7 @@ diabetes_data %>%
 ## splitting data ----
 diabetes_split <- initial_split(diabetes_data, prop = 0.75, strata = outcome)
 diabetes_train <- training(diabetes_split)
-diabetes_folds <- vfold_cv(diabetes_train, v = 5, repeats = 3)
+diabetes_folds <- vfold_cv(diabetes_train, v = 5, repeats = 3, strata = outcome)
 
 ## save split info/training set as .rda objects
 save(diabetes_train, file = "data/diabetes_train.rda")
