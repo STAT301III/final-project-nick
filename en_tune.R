@@ -1,4 +1,4 @@
-# Random forest tuning ----
+# Elastic net tuning ----
 
 # load package(s) ----
 library(tidyverse)
@@ -17,37 +17,37 @@ diabetes_recipe <- recipe(outcome ~ ., data = diabetes_train) %>%
   step_impute_knn(skin_thickness, insulin) %>% 
   ## puts numeric data on the same scale
   step_normalize(all_predictors()) %>% 
+  ## includes all 2-way interactions
+  step_interact(outcome ~ (.)^2) %>% 
   ## eliminates columns with only 1 value
   step_zv(all_predictors())
 
 # Define model ----
-rf_model <- rand_forest(mtry = tune(), min_n = tune()) %>% 
-  set_mode("classification") %>% 
-  set_engine("ranger")
+en_model <- logistic_reg(penalty = tune(), mixture = tune()) %>% 
+  set_engine("glmnet")
 
 
 # set-up tuning grid ----
 
 ## save tuning parameters and ranges
-rf_param <- parameters(rf_model) %>% 
-  update(mtry = mtry(range = c(2L, 4L)))
+en_param <- parameters(en_model)
 
 ## defines tuning grid
-rf_grid <- grid_regular(rf_param, levels = 10)
+en_grid <- grid_regular(en_param, levels = 10)
 
 
 # build workflow ----
-rf_workflow <- workflow() %>% 
-  add_model(rf_model) %>% 
+en_workflow <- workflow() %>% 
+  add_model(en_model) %>% 
   add_recipe(diabetes_recipe)
 
 
 # Tuning/fitting ----
-rf_tune <- rf_workflow %>% 
+en_tune <- en_workflow %>% 
   tune_grid(
     resamples = diabetes_folds,
-    grid = rf_grid
+    grid = en_grid
   )
 
 # Write out results & workflow
-save(rf_tune, rf_workflow, file = "model_info/rf_tune.rda")
+save(en_tune, en_workflow, file = "model_info/en_tune.rda")

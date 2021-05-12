@@ -1,4 +1,4 @@
-# Random forest tuning ----
+# Boosted tree tuning ----
 
 # load package(s) ----
 library(tidyverse)
@@ -21,33 +21,33 @@ diabetes_recipe <- recipe(outcome ~ ., data = diabetes_train) %>%
   step_zv(all_predictors())
 
 # Define model ----
-rf_model <- rand_forest(mtry = tune(), min_n = tune()) %>% 
+bt_model <- boost_tree(mtry = tune(), min_n = tune(), learn_rate = tune()) %>% 
   set_mode("classification") %>% 
-  set_engine("ranger")
+  set_engine("xgboost")
 
 
 # set-up tuning grid ----
 
 ## save tuning parameters and ranges
-rf_param <- parameters(rf_model) %>% 
+bt_param <- parameters(bt_model) %>% 
   update(mtry = mtry(range = c(2L, 4L)))
 
 ## defines tuning grid
-rf_grid <- grid_regular(rf_param, levels = 10)
+bt_grid <- grid_regular(bt_param, levels = 5)
 
 
 # build workflow ----
-rf_workflow <- workflow() %>% 
-  add_model(rf_model) %>% 
+bt_workflow <- workflow() %>% 
+  add_model(bt_model) %>% 
   add_recipe(diabetes_recipe)
 
 
 # Tuning/fitting ----
-rf_tune <- rf_workflow %>% 
+bt_tune <- bt_workflow %>% 
   tune_grid(
     resamples = diabetes_folds,
-    grid = rf_grid
+    grid = bt_grid
   )
 
 # Write out results & workflow
-save(rf_tune, rf_workflow, file = "model_info/rf_tune.rda")
+save(bt_tune, bt_workflow, file = "model_info/bt_tune.rda")

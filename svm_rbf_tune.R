@@ -1,4 +1,4 @@
-# Random forest tuning ----
+# Radial basis function support vector machine tuning ----
 
 # load package(s) ----
 library(tidyverse)
@@ -21,33 +21,31 @@ diabetes_recipe <- recipe(outcome ~ ., data = diabetes_train) %>%
   step_zv(all_predictors())
 
 # Define model ----
-rf_model <- rand_forest(mtry = tune(), min_n = tune()) %>% 
+svm_rbf_model <- svm_rbf(cost = tune(), rbf_sigma = tune()) %>% 
   set_mode("classification") %>% 
-  set_engine("ranger")
-
+  set_engine("kernlab")
 
 # set-up tuning grid ----
 
 ## save tuning parameters and ranges
-rf_param <- parameters(rf_model) %>% 
-  update(mtry = mtry(range = c(2L, 4L)))
+svm_rbf_param <- parameters(svm_rbf_model)
 
 ## defines tuning grid
-rf_grid <- grid_regular(rf_param, levels = 10)
+svm_rbf_grid <- grid_regular(svm_rbf_param, levels = 10)
 
 
 # build workflow ----
-rf_workflow <- workflow() %>% 
-  add_model(rf_model) %>% 
+svm_rbf_workflow <- workflow() %>% 
+  add_model(svm_rbf_model) %>% 
   add_recipe(diabetes_recipe)
 
 
 # Tuning/fitting ----
-rf_tune <- rf_workflow %>% 
+svm_rbf_tune <- svm_rbf_workflow %>% 
   tune_grid(
     resamples = diabetes_folds,
-    grid = rf_grid
+    grid = svm_rbf_grid
   )
 
 # Write out results & workflow
-save(rf_tune, rf_workflow, file = "model_info/rf_tune.rda")
+save(svm_rbf_tune, svm_rbf_workflow, file = "model_info/svm_rbf_tune.rda")
