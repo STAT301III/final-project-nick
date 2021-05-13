@@ -213,3 +213,5 @@ test_results
 ```
 
 Overall, the model performed reasonably well and only slightly worse than it did on the resamples, indicating slight overfitting of the model. Regardless, a roc_auc score of 0.836 is very high and indicates the model is very good at classification. To improve the model, having more complete data (i.e. less missing values) could improve the accuracy of the model. Of particular concern was the variable insulin which was important because it measured serum insulin levels (higher baseline serum insulin levels are indicative of Type II diabetes), but it was missing nearly half of its values. Our model can also be improved with more data and additional clinical predictors. 
+
+
