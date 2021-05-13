@@ -1,0 +1,25 @@
+Pima Indians Diabetes Database
+
+Source: The data was obtained from Kaggle (https://www.kaggle.com/uciml/pima-indians-diabetes-database) which was originally obtained from the National Institute of Diabetes and Digestive and Kidney Diseases. 
+
+Description: The dataset contains 768 observations corresponding to adult Pima tribeswomen from Arizona. The outcome variable is the presence of diabetes, and there are 8 predictor variables corresponding to clinical measurements, age, and other information. 
+
+Variables:
+
+pregnancies: number of times pregnant
+
+glucose: plasma glucose level 2 hours after consuming glucose solution during oral glucose tolerance test
+
+blood_pressure: diastolic blood pressure (mmHg)
+
+insulin: 2-hour serum insulin levels
+
+skin_thickness: skin fold thickness (mm) of tricep
+
+bmi: body mass index
+
+age: age in years
+
+diabetes_pedigree_function: diabetes pedigree - likelihood of developing diabetes based on family history
+
+outcome: presence or lack of diabetes (1 = has diabetes, 0 = doesn't have diabetes)
