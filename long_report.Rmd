@@ -1,0 +1,215 @@
+---
+title: "Predicting Diabetes in Adult Pima Tribeswomen Using a Classification Model"
+author: "Nick Parekh"
+output: 
+  html_document:
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+
+In this project, we aim to create a classification model to predict the presence of diabetes in adult Native American women from the Pima tribe in Arizona. The data was obtained from [Kaggle](https://www.kaggle.com/uciml/pima-indians-diabetes-database) which was originally sourced from the National Institute on Diabetes and Digestive and Kidney Disorders. Native American women have some of the worst health outcomes out of any group in the country, so a machine learning model could serve as an early diagnostic tool to identify individuals who are at risk of or who have diabetes but don't know that they do based on clinical measurements like blood pressure, body mass index (BMI), and insulin levels. The dataset contains 8 predictor variables (nearly all numerical clinical measurements), 1 outcome variable, and 768 observations. 
+
+## EDA
+
+```{r, message=FALSE, echo=FALSE}
+## load package(s)
+library(tidyverse)
+library(tidymodels)
+library(naniar)
+
+## load dataset 
+diabetes_data <- read_csv("data/processed/diabetes.csv") %>% 
+  janitor::clean_names() %>% 
+  mutate(outcome = factor(outcome, levels = c("1", "0"), labels = c("Yes", "No")))
+```
+
+```{r}
+## replaces values of 0 with NA
+diabetes_data$insulin[diabetes_data$insulin == 0] <- NA
+diabetes_data$skin_thickness[diabetes_data$skin_thickness == 0] <- NA
+diabetes_data$bmi[diabetes_data$bmi == 0] <- NA
+diabetes_data$blood_pressure[diabetes_data$blood_pressure == 0] <- NA
+diabetes_data$glucose[diabetes_data$glucose == 0] <- NA
+
+
+gg_miss_var(diabetes_data)
+```
+
+
+One of the issues with the dataset was missing values were indicated with 0 for some of the predictor variables instead of NA. For example, some individuals had a diastolic blood pressure of 0 which is not possible unless the individual was dead. Therefore, we replaced all values of 0 in the predictor variables (except for pregnancies since it's possible to not have been pregnant) with NA values. The plot indicates there is a lot of missingness in insulin and skin_thickness; there is also a little missingness in blood_pressure, bmi, and glucose. 
+
+
+```{r}
+miss_var_summary(diabetes_data)
+```
+
+
+The table expands on what we saw in the plot. blood_pressure, bmi, and glucose are each missing less than 5% of their data, so their missing values can easily be imputed. In contrast, insulin is missing nearly 50% of its values, and skin_thickness is missing nearly 30% of its values. Normally, we would remove these variables, but serum insulin is likely an important predictor of diabetes so we will have to find a workaround. 
+
+<br>
+
+## Findings
+
+```{r}
+## quick look at target variable distribution
+ggplot(diabetes_data, aes(outcome)) + 
+  geom_bar(fill = "#add8e6") + 
+  theme_minimal() + 
+  labs(
+    x = "Diagnosed with diabetes?",
+    y = "Count",
+    title = "Target Variable Distribution"
+  ) 
+```
+
+
+The bar chart shows there is a large class imbalance in the outcome variable with a lot more people not having diabetes than those that do.
+
+
+```{r}
+diabetes_data %>% 
+  count(outcome) %>% 
+  mutate(prop_total = n/sum(n))
+```
+
+
+The table confirms what we saw, showing that only 35% of individuals have diabetes while 65% do not. During the splitting process, we will definitely have to stratify the splitting by the outcome variable. 
+
+
+```{r}
+## loads training data
+load("data/diabetes_train.rda")
+
+bmi_avg <- diabetes_train %>% 
+  group_by(outcome) %>% 
+  summarise(avg_bmi = mean(bmi, na.rm = TRUE))
+ggplot(bmi_avg, aes(outcome, avg_bmi, fill = outcome)) + 
+  geom_bar(stat = "identity", color = "black") + 
+  theme_minimal() + 
+  labs(x = "Diabetes", y = "Average body mass index (BMI)") + 
+  theme(legend.position = "none")
+```
+
+
+Based on the bar graph, diabetic patients appear to have a higher body mass index (BMI) on average. 
+
+
+```{r}
+glucose_avg <- diabetes_train %>% 
+  group_by(outcome) %>% 
+  summarise(avg_glucose = mean(glucose, na.rm = TRUE))
+ggplot(glucose_avg, aes(outcome, avg_glucose, fill = outcome)) + 
+  geom_bar(stat = "identity", color = "black") + 
+  theme_minimal() + 
+  labs(x = "Diabetes", y = "Average blood glucose") +
+  theme(legend.position = "none")
+
+insulin_avg <- diabetes_train %>% 
+  group_by(outcome) %>% 
+  summarise(avg_insulin = mean(insulin, na.rm = TRUE))
+ggplot(insulin_avg, aes(outcome, avg_insulin, fill = outcome)) + 
+  geom_bar(stat = "identity", color = "black") + 
+  theme_minimal() + 
+  labs(x = "Diabetes", y = "Average insulin") +
+  theme(legend.position = "none")
+```
+
+
+Similarly, higher 2 hour serum insulin levels and blood glucose levels during a glucose tolerance test appear to be associated with diabetes. This is probably related to insulin insensitivity. The cells of patients with Type II diabetes don't respond as well to insulin, so glucose isn't taken into the cells efficiently and the body tries to compensate by secreting more insulin. 
+
+
+```{r}
+ggplot(diabetes_train, aes(age, fill = outcome)) + 
+  geom_histogram(binwidth = 10, color = "black") +
+  theme_minimal() +
+  labs(x = "Age", y = "Count", fill = "Diabetes")
+```
+
+
+Middle-aged individuals (30-60 years old) seem to have higher rates of diabetes compared to younger and older individuals. Obviously, younger people are healthier and less likely to develop Type II Diabetes at that age. The oldest individuals (> 60 years old) may have lower rates of diabetes because they had better diets (e.g. no fast food, soda). The distribution of age is also highly right-skewed so we will likely needed to normalize the predictors during the recipe-building stage.
+
+
+```{r, warning=FALSE}
+ggplot(diabetes_train, aes(bmi, skin_thickness)) + 
+  geom_point(color = "#fa8072") + 
+  theme_minimal() + 
+  labs(x = "Body Mass Index (BMI)", y = "Skin Thickness")
+```
+
+
+BMI and skin thickness are highly correlated but this not entirely surprising since both are intended to be measures of body fat. 
+
+
+```{r, warning=FALSE}
+ggplot(diabetes_train, aes(insulin, glucose)) + 
+  geom_point(color = "#30D5C8") + 
+  theme_minimal() +
+  labs(x = "Serum Insulin", y = "Blood Glucose")
+```
+
+
+Likewise, blood glucose levels during the glucose tolerance test and serum insulin levels also display a high degree of correlation. This is likely because high blood glucose during the glucose tolerance test indicates insulin insensitivity, and one way the body tries to deal with insulin insensitivity is by secreting more insulin. 
+
+
+```{r, warning=FALSE}
+ggplot(diabetes_data, aes(pregnancies, glucose, color = outcome)) + 
+  geom_jitter() + 
+  theme_minimal() + 
+  labs(x = "Number of Pregnancies", y = "Blood Glucose", color = "Diabetes")
+```
+
+
+Interestingly, there doesn't seem to be a pattern between blood glucose levels and number of pregnancies - all we see is a cloud of points. This suggests number of pregnancies may not be a good predictor of diabetes. 
+
+## Splitting the data
+
+**Note**: a majority of the EDA above was conducted on the training data
+
+The data was split such that 75% of it was allocated toward the training set and the other 25% was allocated toward the testing set to ensure that there would be enough data for training the model. Due to the large class imbalanced, the split was also stratified by outcome to ensure that both the training and testing sets had equal distributions of outcome.To tune hyperparameters and compare models, we created resamples using 5-fold cross-validation with 3 repeats. 
+
+## Feature Engineering
+
+```{r}
+# build recipe 
+diabetes_recipe <- recipe(outcome ~ ., data = diabetes_train) %>% 
+  ## impute these variables using median since there are few missing values
+  step_impute_median(glucose, bmi, blood_pressure) %>% 
+  ## impute these variables using KNN since they are missing 30-50% of their values
+  step_impute_knn(skin_thickness, insulin) %>% 
+  ## puts numeric data on the same scale
+  step_normalize(all_predictors()) %>% 
+  ## eliminates columns with only 1 value
+  step_zv(all_predictors())
+```
+
+There was some slight variation of the recipe used for each model, but in general, imputation of missing data, normalization of predictors, and removal of columns with zero-variance were used. The outcome variable was predicted using all of the predictors. As mentioned above in the EDA, glucose, bmi, blood_pressure, skin_thickness, and insulin had missing values. Since glucose, bmi, and blood_pressure were each missing less than 5% of their values, we decided to impute their missing values using the median of each variable. While skin_thickness and insulin were missing more than 20% of their values, we thought it was important to keep them, especially insulin, due to the low number of predictor variables and importance of insulin. We imputed their missing values using K-nearest neighbors imputation to provide a more accurate estimate than using the median. 
+
+## Defining models and workflows
+
+6 different models were compared against one another (elastic net regression, random forest, boosted tree, K-nearest neighbors, polynomial support vector machine, radial basis function support vector machine). The specific model definitions can be viewed in the "_tune.R" files in the Github repository. For elastic net regression, the mixture and penalty hyperparameters were tuned. For random forest and boosted tree, mtry and min_n were tuned. In addition, learn_rate was tuned in boosted tree. The range of sampled predictors was updated from 2 to half of the total number of predictors (4). In K-nearest neighbors, the number of neighbors was tuned. In both support vector machine models, cost was tuned. In the polynomial support vector machine model, degree and scale_factor were also tuned while rbf_sigma was also tuned in the radial basis function support vector machine model. 
+
+## Tuning hyperparameters and choosing the "winning" model
+The models were tuned over 15 resamples (5-fold cross-validation with 3 repeats). The best iteration of each model was then run across all resamples to assess its performance via cross-validation. The results are summarized here:
+
+```{r}
+load("model_info/cv_results.rda")
+cv_results
+```
+
+The best radial basis function support vector machine model performed the best against the other models, evident in it having the highest roc_auc score. roc_auc was our performance metric for classification since it optimizes the true positive rate while minimizing the false positive rate. It is important to note, however, that the model's performance was not significant Both the polynomial support vector machine and elastic net models had roc_auc scores within one standard error of the top model's score. Nonetheless, we decided to go forward with the radial basis function support vector machine model as our top model. 
+
+## Fitting the "winning" model and evaluating it on the testing set
+
+We then fit the winning model to the whole training set. The fitted model was used to predict outcome in the testing set. The roc_auc score was calculated using the model's estimated probabilities of the outcome's values and the actual values and is displayed below:
+
+```{r}
+load("model_info/test_results.rda")
+test_results
+```
+
+Overall, the model performed reasonably well and only slightly worse than it did on the resamples, indicating slight overfitting of the model. Regardless, a roc_auc score of 0.836 is very high and indicates the model is very good at classification. To improve the model, having more complete data (i.e. less missing values) could improve the accuracy of the model. Of particular concern was the variable insulin which was important because it measured serum insulin levels (higher baseline serum insulin levels are indicative of Type II diabetes), but it was missing nearly half of its values. Our model can also be improved with more data and additional clinical predictors. 

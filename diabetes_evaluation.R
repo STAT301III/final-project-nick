@@ -31,8 +31,8 @@ cv_results <- tibble(
   assessment_info = map(cv_info, collect_metrics)
 )
 
-## formats results as tabble 
-cv_results %>% 
+## formats results as table 
+cv_results <- cv_results %>% 
   select(model_type, assessment_info) %>% 
   unnest(assessment_info) %>% 
   filter(.metric == "roc_auc") %>% 
